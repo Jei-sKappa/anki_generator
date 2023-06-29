@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import os
 import sys
 import re
 import genanki
@@ -39,7 +39,9 @@ def main(nome_file, deck_name, version):
     exit(1)
 
   # Save the deck to an Anki package (*.apkg) file
-  genanki.Package(deck).write_to_file(f"out/{deck_name.lower().replace(' ', '_')}.apkg")
+  file_dir = os.path.dirname(nome_file)
+  output = f"{deck_name.lower().replace(' ', '_')}.apkg"
+  genanki.Package(deck).write_to_file(os.path.join(file_dir, output))
   print("Saved" ,count, "flashcards")
 
 
@@ -70,13 +72,13 @@ def fix_string(content):
 
 
 def generate_v1(nome_file, model, deck):
-  text_parsed_data = md_question_parse_v2(nome_file)
+  text_parsed_data = md_question_parse_v1(nome_file)
   count = 0
   for chapter in text_parsed_data:
-    print("- Chapter:", chapter)
+    # print("- Chapter:", chapter)
     for q, a in text_parsed_data[chapter]:
-      print("    Q:", q.replace('\n', ' | '))
-      print("      A:", a.replace('\n', ' | '))
+      # print("    Q:", q.replace('\n', ' | '))
+      # print("      A:", a.replace('\n', ' | '))
       q = q.replace('\n', '<br>')
       q = f"<h1>{chapter}</h1>{q}"
       a = a.replace('\n', '<br>')
@@ -90,12 +92,12 @@ def generate_v2(nome_file, model, deck):
   text_parsed_data = md_question_parse_v2(nome_file)
   count = 0
   for chapter in text_parsed_data:
-    print("#  ", chapter)
+    # print("#  ", chapter)
     for c2, c3, q, a in text_parsed_data[chapter]:
-      print("## ", c2)
-      print("###", c3)
-      print("    Q:", q.replace('\n', ' | '))
-      print("      A:", a.replace('\n', ' | '))
+      # print("## ", c2)
+      # print("###", c3)
+      # print("    Q:", q.replace('\n', ' | '))
+      # print("      A:", a.replace('\n', ' | '))
       q = q.replace('\n', '<br>')
       q = f"<h3>{c3}</h3>{q}"
       q = f"<h2>{c2}</h2>{q}"
