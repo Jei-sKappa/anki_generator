@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import os
 import sys
+import argparse
 import re
 import genanki
 
-def main(nome_file, deck_name, version):
+def main(nome_file, deck_name, version, use_obsidian_format):
   # Define Anki note model
   model_id = 1345664314
   model = genanki.Model(
@@ -32,7 +33,7 @@ def main(nome_file, deck_name, version):
   deck = genanki.Deck(deck_id, deck_name)
 
   if version == 1:
-    count, media_files = generate_v1(nome_file, model, deck)
+    count, media_files = generate_v1(nome_file, model, deck, use_obsidian_format)
   elif version == 2:
     count = generate_v2(nome_file, model, deck)
     # TODO: Hardcoded media files
@@ -86,26 +87,48 @@ def fix_string(content):
 
     return stringa_modificata
 
+  
+def parse_media_images(markdown_text, use_obsidian_format):
+    def markdown_to_html_images(markdown_text):
+        image_paths = []  # Inizializza il vettore per i percorsi delle immagini
+        
+        def replace_image(match):
+            alt_text = match.group(1) if match.group(1) else ""  # Gestisci l'assenza dell'alt text
+            image_path = match.group(2)
+            image_paths.append(image_path)  # Aggiungi il percorso dell'immagine alla lista
+            image_filename = image_path.split('/')[-1]  # Estrai solo il nome del file
+            image_tag = f'<img src="{image_filename}" alt="{alt_text}">'
+            return image_tag
+        
+        # Trova tutte le immagini in formato Markdown e sostituiscile con i tag HTML
+        pattern = r'\!\[([^\]]*)\]\(([^)]+)\)'
+        html_text = re.sub(pattern, replace_image, markdown_text)
+        
+        return html_text, image_paths
+      
+    def obsidian_md_to_html_images(markdown_text):
+        image_paths = []  # Inizializza il vettore per i percorsi delle immagini
+        
+        def replace_image(match):
+            image_path = match.group(1)
+            image_paths.append(image_path)  # Aggiungi il percorso dell'immagine alla lista
+            image_filename = image_path.split('/')[-1]  # Estrai solo il nome del file
+            return f'<img src="{image_filename}">'
+        
+        # Trova tutte le immagini nel formato Markdown di Obsidian e sostituiscile con i tag HTML
+        pattern = r'\!\[\[([^\]]+)\]\]'
+        html_text = re.sub(pattern, replace_image, markdown_text)
+        
+        return html_text, image_paths
 
-def markdown_to_html_images(markdown_text):
-    image_paths = []  # Inizializza il vettore per i percorsi delle immagini
-    
-    def replace_image(match):
-        alt_text = match.group(1) if match.group(1) else ""  # Gestisci l'assenza dell'alt text
-        image_path = match.group(2)
-        image_paths.append(image_path)  # Aggiungi il percorso dell'immagine alla lista
-        image_filename = image_path.split('/')[-1]  # Estrai solo il nome del file
-        image_tag = f'<img src="{image_filename}" alt="{alt_text}">'
-        return image_tag
-    
-    # Trova tutte le immagini in formato Markdown e sostituiscile con i tag HTML
-    pattern = r'\!\[([^\]]*)\]\(([^)]+)\)'
-    html_text = re.sub(pattern, replace_image, markdown_text)
-    
-    return html_text, image_paths
+    # START FUNCTION
+    if use_obsidian_format:
+        return obsidian_md_to_html_images(markdown_text)
+    else:
+        return markdown_to_html_images(markdown_text)
 
 
-def generate_v1(nome_file, model, deck):
+def generate_v1(nome_file, model, deck, use_obsidian_format):
   media_files = []
   text_parsed_data = md_question_parse_v1(nome_file)
   count = 0
@@ -116,13 +139,13 @@ def generate_v1(nome_file, model, deck):
       # print("      A:", a.replace('\n', ' | '))
 
       # Search Images in Question
-      q, media = markdown_to_html_images(q)
+      q, media = parse_media_images(q, use_obsidian_format)
       # Append media files to the list
       for media_file in media:
           media_files.append(media_file)
 
       # Search Images in Answer
-      a, media = markdown_to_html_images(a)
+      a, media = parse_media_images(a, use_obsidian_format)
       # Append media files to the list
       for media_file in media:
           media_files.append(media_file)
@@ -261,9 +284,42 @@ def md_question_parse_v1(nome_file):
 
 
 if __name__ == '__main__':
-  if len(sys.argv) < 3:
-    print("Usage: python3 gen.py <nome_file> <nome_deck> <version>")
-    exit(1)  
+  # if len(sys.argv) < 3:
+  #   print("Usage: python3 gen.py <nome_file> <nome_deck> <version>")
+  #   exit(1)  
 
-  _, nome_file, nome_deck, version = sys.argv
-  main(nome_file, nome_deck, int(version))
+  # _, nome_file, nome_deck, version = sys.argv
+  # main(nome_file, nome_deck, int(version))
+  
+  ###########
+  
+  # Parser degli argomenti da riga di comando
+  parser = argparse.ArgumentParser(description='Convert Markdown to Anki Deck')
+  
+  default_nome_file = '___default_file_name_error___'
+  
+  parser.add_argument('input_file', nargs='?', default=default_nome_file, help='Input Markdown file')
+  parser.add_argument('-o', '--output', default='MD2AnkiDeckOutput', help='Output Anki Deck name')
+  parser.add_argument('-v', '--version', type=int, choices=[1, 2], default=1, help='Anki Deck version (1 or 2)')
+  parser.add_argument('--use-obsidian-format', action='store_true', help='Use Obsidian Markdown format')
+  
+  args = parser.parse_args()
+  
+  # Estrai i valori dagli argomenti
+  input_file = args.input_file
+  
+  if input_file == default_nome_file:
+      print("Errore: specificare un file di input.")
+      sys.exit(1)
+  elif not os.path.isfile(input_file):
+      print(f"Errore: il file '{input_file}' non esiste.")
+      sys.exit(1)
+  
+  # Altri parametri
+  output_deck = args.output
+  deck_version = args.version
+  use_obsidian_format = args.use_obsidian_format
+  
+  # Stampa i valori utilizzati
+  print(f'Converting file: {input_file} to: {output_deck}.apkg\nVersion: {deck_version}\nUse Obsidian Format: {use_obsidian_format}')
+  main(input_file, output_deck, int(deck_version), use_obsidian_format)
