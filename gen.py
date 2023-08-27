@@ -91,14 +91,15 @@ def markdown_to_html_images(markdown_text):
     image_paths = []  # Inizializza il vettore per i percorsi delle immagini
     
     def replace_image(match):
-        alt_text = match.group(1)
+        alt_text = match.group(1) if match.group(1) else ""  # Gestisci l'assenza dell'alt text
         image_path = match.group(2)
         image_paths.append(image_path)  # Aggiungi il percorso dell'immagine alla lista
         image_filename = image_path.split('/')[-1]  # Estrai solo il nome del file
-        return f'<img src="{image_filename}" alt="{alt_text}">'
+        image_tag = f'<img src="{image_filename}" alt="{alt_text}">'
+        return image_tag
     
     # Trova tutte le immagini in formato Markdown e sostituiscile con i tag HTML
-    pattern = r'\!\[([^\]]+)\]\(([^)]+)\)'
+    pattern = r'\!\[([^\]]*)\]\(([^)]+)\)'
     html_text = re.sub(pattern, replace_image, markdown_text)
     
     return html_text, image_paths
