@@ -32,18 +32,34 @@ def main(nome_file, deck_name, version):
   deck = genanki.Deck(deck_id, deck_name)
 
   if version == 1:
-    count = generate_v1(nome_file, model, deck)
+    count, media_files = generate_v1(nome_file, model, deck)
   elif version == 2:
     count = generate_v2(nome_file, model, deck)
+    # TODO: Hardcoded media files
+    media_files = []
   else:
     exit(1)
 
   # Save the deck to an Anki package (*.apkg) file
   file_dir = os.path.dirname(nome_file)
+  
+  # Fix media files path
+  media_files = fix_media_files_path(file_dir, media_files)
+  
+  # Generate output
   output = f"{deck_name.lower().replace(' ', '_')}.apkg"
-  genanki.Package(deck).write_to_file(os.path.join(file_dir, output))
+  package = genanki.Package(deck)
+  package.media_files = media_files
+  package.write_to_file(os.path.join(file_dir, output))
   print("Saved" ,count, "flashcards")
 
+def fix_media_files_path(dir, media_files):
+  fixed_media_files = []
+  for media in media_files:
+    fixed_media_files.append(os.path.join(dir, media))
+  
+  return fixed_media_files
+  
 
 def save_question_v1(dict, current_title, question_rows, answer_rows):
   if question_rows and answer_rows:
@@ -71,7 +87,25 @@ def fix_string(content):
     return stringa_modificata
 
 
+def markdown_to_html_images(markdown_text):
+    image_paths = []  # Inizializza il vettore per i percorsi delle immagini
+    
+    def replace_image(match):
+        alt_text = match.group(1)
+        image_path = match.group(2)
+        image_paths.append(image_path)  # Aggiungi il percorso dell'immagine alla lista
+        image_filename = image_path.split('/')[-1]  # Estrai solo il nome del file
+        return f'<img src="{image_filename}" alt="{alt_text}">'
+    
+    # Trova tutte le immagini in formato Markdown e sostituiscile con i tag HTML
+    pattern = r'\!\[([^\]]+)\]\(([^)]+)\)'
+    html_text = re.sub(pattern, replace_image, markdown_text)
+    
+    return html_text, image_paths
+
+
 def generate_v1(nome_file, model, deck):
+  media_files = []
   text_parsed_data = md_question_parse_v1(nome_file)
   count = 0
   for chapter in text_parsed_data:
@@ -79,13 +113,27 @@ def generate_v1(nome_file, model, deck):
     for q, a in text_parsed_data[chapter]:
       # print("    Q:", q.replace('\n', ' | '))
       # print("      A:", a.replace('\n', ' | '))
+
+      # Search Images in Question
+      q, media = markdown_to_html_images(q)
+      # Append media files to the list
+      for media_file in media:
+          media_files.append(media_file)
+
+      # Search Images in Answer
+      a, media = markdown_to_html_images(a)
+      # Append media files to the list
+      for media_file in media:
+          media_files.append(media_file)
+
+      # Fix other
       q = q.replace('\n', '<br>')
       q = f"<h1>{chapter}</h1>{q}"
       a = a.replace('\n', '<br>')
       note = genanki.Note(model=model, fields=[q, a])
       deck.add_note(note)
       count += 1  
-  return count
+  return count, media_files
 
 
 def generate_v2(nome_file, model, deck):
@@ -168,6 +216,7 @@ def md_question_parse_v2(nome_file):
     save_question_v2(dict_parsed, current_chapter, current_subchapter, current_subsubchapter, question_rows, answer_rows)
     
     return dict_parsed
+
 
 def md_question_parse_v1(nome_file):
     dict_parsed = {}
