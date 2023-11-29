@@ -43,6 +43,10 @@ def main(
         count = generate_v2(nome_file, model, deck)
         # TODO: Hardcoded media files
         media_files = []
+    elif version == 3:
+        count = generate_v3(nome_file, model, deck)
+        # TODO: Hardcoded media files
+        media_files = []        
     else:
         exit(1)
 
@@ -170,6 +174,31 @@ def parse_media_images(
         return obsidian_md_to_html_images(markdown_text, obsidian_assets_folder)
     else:
         return markdown_to_html_images(markdown_text)
+      
+
+def generate_v3(
+  nome_file: str,
+  model: genanki.Model,
+  deck: genanki.Deck,
+) -> int:
+    with open(nome_file, "r") as file:
+        lines = file.readlines()
+
+    count = 0
+    for line_number, line in enumerate(lines):
+        # Line format: "| Question | Answer |"
+        q = line.split("|")[1].strip()
+        a = line.split("|")[2].strip()
+        if q == "" or a == "":
+            print("Skipping line number", line_number, ". Empty question or answer.")
+            continue
+        note = genanki.Note(model=model, fields=[q, a])
+        deck.add_note(note)
+        count += 1
+    
+    return count        
+        
+
 
 
 def generate_v1(
@@ -383,9 +412,8 @@ if __name__ == "__main__":
         "-v",
         "--version",
         type=int,
-        choices=[1, 2],
-        default=1,
-        help="Anki Deck version (1 or 2)",
+        choices=[1, 2, 3],
+        help="Anki Deck version (1, 2 or 3)",
     )
     parser.add_argument(
         "--use-obsidian-format",
